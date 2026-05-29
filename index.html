@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Photo Scavenger Hunt</title>
+  
+  <!-- PWA Requirements -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a0c10">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="logo.png">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="app.css">
+  
+  <!-- Supabase Client Library CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <div id="app-container">
+    
+    <!-- Top Warning Container for Demo Mode -->
+    <div id="setup-warning-container"></div>
+    
+    <!-- 1. Join/Login Screen -->
+    <main id="join-screen" class="screen active">
+      <img src="logo.png" alt="Scavenger Hunt Logo" class="hero-logo">
+      <h2 class="join-title">Photo Hunt PWA</h2>
+      <p class="join-subtitle">Youth Group Scavenger Hunt Event</p>
+      
+      <form id="join-form" class="glass-panel">
+        <div class="input-container">
+          <input type="text" id="group-name-input" placeholder="Enter Group Name..." required autocomplete="off">
+        </div>
+        <button type="submit" class="btn-primary">
+          Start Hunt! 🚀
+        </button>
+      </form>
+    </main>
+
+    <!-- 2. Active Hunt Screen -->
+    <main id="hunt-screen" class="screen">
+      
+      <!-- Top header bar -->
+      <header>
+        <div class="logo-section">
+          <img src="logo.png" alt="Logo">
+          <h1>PHOTO HUNT</h1>
+        </div>
+        <div class="group-badge" id="badge-group-name">Group Name</div>
+      </header>
+
+      <!-- Active Prompt Card -->
+      <section class="glass-panel prompt-card">
+        <span class="prompt-badge" id="prompt-num-badge">Prompt 1 of 15</span>
+        <h2 class="prompt-title" id="prompt-title">Loading prompt...</h2>
+        <p class="prompt-description" id="prompt-desc">Prompt description will load here.</p>
+      </section>
+
+      <!-- Camera Capture Upload Box -->
+      <section class="glass-panel" style="padding: 12px; margin-bottom: 24px;">
+        <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
+        <div class="upload-box" id="upload-trigger">
+          <span class="upload-icon">📸</span>
+          <span class="upload-text">Tap to Open Camera</span>
+          <span class="upload-subtext">Take and upload a picture</span>
+        </div>
+      </section>
+
+      <!-- Real-time updates Feed -->
+      <section class="feed-section">
+        <div class="feed-header">
+          <h3>
+            <span class="pulse-dot"></span>
+            Other Groups' Uploads
+          </h3>
+        </div>
+        <div class="feed-grid" id="feed-grid">
+          <!-- Feed items inserted here dynamically -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Fullscreen Image Lightbox Overlay -->
+    <div id="lightbox" class="lightbox">
+      <button class="lightbox-close" id="lightbox-close">&times;</button>
+      <img src="" id="lightbox-img" class="lightbox-content" alt="Large view">
+    </div>
+
+    <!-- Sticky Navigation Controls at bottom -->
+    <nav class="sticky-navbar" id="sticky-nav" style="display: none;">
+      <button class="btn-nav" id="btn-prev" disabled>
+        ◀ Previous
+      </button>
+      <button class="btn-nav" id="btn-next">
+        Next ▶
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- App configuration & scripts -->
+  <script src="prompts.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+  
+  <!-- Service Worker Registration for PWA installation -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('Service Worker registered successfully!', reg.scope))
+          .catch(err => console.error('Service Worker registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>
