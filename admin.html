@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Photo Hunt - Admin Panel</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="app.css">
+  
+  <!-- Admin Specific Custom CSS -->
+  <style>
+    .admin-prompt-editor {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding: 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+    
+    .admin-prompt-editor input, .admin-prompt-editor textarea {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: white;
+      padding: 10px;
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+    
+    .admin-prompt-editor textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .admin-header-badge {
+      background: var(--secondary-glow);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 4px 8px;
+      border-radius: 8px;
+    }
+
+    .admin-actions {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+      box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    }
+  </style>
+  
+  <!-- Supabase Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <div id="app-container" style="max-width: 600px;">
+    
+    <!-- 1. Password Verification Screen -->
+    <main id="auth-screen" class="screen active" style="justify-content: center; text-align: center;">
+      <h2 class="join-title">Admin Dashboard</h2>
+      <p class="join-subtitle">Enter password to configure scavenger hunt</p>
+      
+      <form id="auth-form" class="glass-panel">
+        <div class="input-container">
+          <input type="password" id="admin-password-input" placeholder="Enter Admin Password..." required>
+        </div>
+        <button type="submit" class="btn-primary">
+          Verify Password 🔑
+        </button>
+      </form>
+    </main>
+
+    <!-- 2. Admin Dashboard Screen -->
+    <main id="admin-screen" class="screen">
+      <header>
+        <div class="logo-section">
+          <h1>HUNT SETTINGS</h1>
+          <span class="admin-header-badge">Admin</span>
+        </div>
+        <a href="index.html" style="color: var(--text-secondary); text-decoration: none; font-size: 0.9rem; font-weight: 600;">◀ Back to App</a>
+      </header>
+
+      <section class="glass-panel">
+        <h3 style="margin-bottom: 16px;">Global Controls</h3>
+        <div class="admin-actions">
+          <button id="btn-save-prompts" class="btn-primary" style="flex-grow: 1;">
+            💾 Save Prompts to Cloud
+          </button>
+          <button id="btn-reset-photos" class="btn-primary btn-danger" style="flex-grow: 1;">
+            🗑️ Clear Uploaded Photos
+          </button>
+        </div>
+        <button id="btn-load-defaults" class="btn-primary" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-color); color: var(--text-secondary); margin-top: 8px;">
+          🔄 Load Default 15 Prompts
+        </button>
+      </section>
+
+      <!-- Prompts configuration list -->
+      <section class="glass-panel" style="margin-bottom: 80px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3>Prompt Configuration</h3>
+          <button id="btn-add-prompt" style="background: transparent; border: 1px solid #10b981; color: #10b981; padding: 6px 12px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+            + Add Prompt
+          </button>
+        </div>
+        <div id="prompts-list-container">
+          <!-- Prompt items will render dynamically -->
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- App configuration & scripts -->
+  <script src="prompts.js"></script>
+  <script src="supabase-config.js"></script>
+  <script>
+    // Simple Admin password. Customize this value!
+    const ADMIN_PASSWORD = "scavenger-admin";
+  </script>
+  <script src="admin.js"></script>
+</body>
+</html>

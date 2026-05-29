@@ -3,6 +3,7 @@ let currentPromptIndex = 1;
 let currentGroupName = "";
 let supabaseClient = null;
 let realtimeChannel = null;
+let promptsList = []; // Loaded from Supabase or prompts.js
 
 // Mock database for Demo Mode
 let mockPhotos = [];
@@ -12,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initApp();
 });
 
-function initApp() {
+async function initApp() {
   // Check if group is logged in
   const savedGroup = localStorage.getItem("scavenger_group_name");
   
@@ -22,12 +23,15 @@ function initApp() {
   // Populate mock data if running in Demo Mode
   if (!isSupabaseConfigured()) {
     initMockData();
+    promptsList = JSON.parse(JSON.stringify(SCAVENGER_PROMPTS));
   } else {
     // Initialize Supabase Client
     try {
       supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      await fetchPromptsList();
     } catch (e) {
       console.error("Failed to initialize Supabase:", e);
+      promptsList = JSON.parse(JSON.stringify(SCAVENGER_PROMPTS));
     }
   }
 
@@ -42,6 +46,24 @@ function initApp() {
 
   // Setup Event Listeners
   setupEventListeners();
+}
+
+async function fetchPromptsList() {
+  try {
+    let { data, error } = await supabaseClient
+      .from('prompts')
+      .select('*')
+      .order('id', { ascending: true });
+      
+    if (!error && data && data.length > 0) {
+      promptsList = data;
+    } else {
+      promptsList = JSON.parse(JSON.stringify(SCAVENGER_PROMPTS));
+    }
+  } catch (e) {
+    console.warn("Could not load prompts from Supabase, using defaults:", e);
+    promptsList = JSON.parse(JSON.stringify(SCAVENGER_PROMPTS));
+  }
 }
 
 // Display warning banner if configuration is missing
@@ -137,7 +159,7 @@ function setupEventListeners() {
   });
 
   document.getElementById("btn-next").addEventListener("click", () => {
-    if (currentPromptIndex < 15) {
+    if (currentPromptIndex < promptsList.length) {
       currentPromptIndex++;
       loadPrompt(currentPromptIndex);
     }
@@ -174,14 +196,14 @@ function setupEventListeners() {
 async function loadPrompt(index) {
   // Update nav buttons disabled state
   document.getElementById("btn-prev").disabled = (index === 1);
-  document.getElementById("btn-next").disabled = (index === 15);
+  document.getElementById("btn-next").disabled = (index === promptsList.length);
   
   // Find prompt details
-  const prompt = SCAVENGER_PROMPTS.find(p => p.id === index);
+  const prompt = promptsList.find(p => p.id === index);
   if (!prompt) return;
 
   // Render Prompt Info
-  document.getElementById("prompt-num-badge").textContent = `Prompt ${index} of 15`;
+  document.getElementById("prompt-num-badge").textContent = `Prompt ${index} of ${promptsList.length}`;
   document.getElementById("prompt-title").textContent = prompt.title;
   document.getElementById("prompt-desc").textContent = prompt.description;
 

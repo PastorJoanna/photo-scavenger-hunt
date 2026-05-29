@@ -16,8 +16,8 @@ A mobile-responsive, multi-user Progressive Web Application (PWA) with real-time
 
 To enable real-time synchronization and database storage, you will need a free Supabase account. Follow these steps:
 
-### 1. Create the Database Table
-In your Supabase Dashboard, open the **SQL Editor** and execute the following SQL script to create the `photos` table and setup Row Level Security (RLS) allowing anyone to read/write:
+### 1. Create the Database Tables
+In your Supabase Dashboard, open the **SQL Editor** and execute the following SQL script to create both the `photos` and `prompts` tables and setup Row Level Security (RLS) allowing public access:
 
 ```sql
 -- Create the photos table
@@ -29,18 +29,28 @@ create table photos (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Enable Row Level Security (RLS)
+-- Enable RLS for photos
 alter table photos enable row level security;
 
--- Create policies for public access (perfect for a casual group event)
-create policy "Allow public read access" on photos
-  for select using (true);
+create policy "Allow public read access" on photos for select using (true);
+create policy "Allow public insert access" on photos for insert with check (true);
+create policy "Allow public delete access" on photos for delete using (true);
 
-create policy "Allow public insert access" on photos
-  for insert with check (true);
-  
-create policy "Allow public delete access" on photos
-  for delete using (true);
+-- Create the prompts table
+create table prompts (
+  id integer primary key,
+  title text not null,
+  description text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS for prompts
+alter table prompts enable row level security;
+
+create policy "Allow public read access" on prompts for select using (true);
+create policy "Allow public insert access" on prompts for insert with check (true);
+create policy "Allow public update access" on prompts for update using (true);
+create policy "Allow public delete access" on prompts for delete using (true);
 ```
 
 ### 2. Create the Storage Bucket
@@ -90,3 +100,24 @@ Vercel makes deploying static HTML/CSS/JS websites extremely easy:
 2. Log into [Vercel](https://vercel.com).
 3. Click **Add New** -> **Project** and import your repository.
 4. Keep the default settings (it will automatically detect the static project) and click **Deploy**.
+
+---
+
+## 🔑 Admin Dashboard
+
+A password-protected admin dashboard is included in the project at [admin.html](file:///Users/joannasmith/.gemini/antigravity/scratch/photo-scavenger-hunt/admin.html) (or `your-vercel-domain.com/admin.html` when deployed).
+
+### Features
+- **Password Protection**: Prevents players from accessing settings.
+- **Customize Prompts**: Change challenge titles and descriptions dynamically.
+- **Dynamic Prompt Count**: Add new prompts or remove existing ones. The main PWA dynamically adjusts navigation based on how many prompts are saved.
+- **Reset Game**: Delete all current photo uploads to start a fresh game.
+- **Initialize Defaults**: Pre-populate the editor with the 15 default prompts.
+
+### Configuration
+1. Open [admin.html](file:///Users/joannasmith/.gemini/antigravity/scratch/photo-scavenger-hunt/admin.html) in your editor.
+2. Edit the `ADMIN_PASSWORD` variable at the bottom of the HTML file (default is `scavenger-admin`):
+   ```javascript
+   const ADMIN_PASSWORD = "your-custom-password";
+   ```
+3. Save, commit, and push your changes to GitHub to redeploy!
