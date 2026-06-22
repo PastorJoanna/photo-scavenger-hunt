@@ -1,0 +1,30 @@
+name: Supabase Keep-Alive
+
+# Free-tier Supabase projects pause after ~7 days of inactivity, which takes the
+# scavenger-hunt backend offline (NXDOMAIN) until someone restores it by hand.
+# This workflow makes a tiny read request on a schedule so the project never goes
+# idle long enough to pause. It runs on GitHub's infrastructure, so it works even
+# when the church Mac is asleep or off.
+
+on:
+  schedule:
+    # Every 3 days at 09:00 UTC — two pings inside every 7-day idle window.
+    - cron: "0 9 */3 * *"
+  # Allow a manual run from the Actions tab (handy right after a restore).
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST endpoint
+        run: |
+          # The anon key is public by design and already committed in
+          # supabase-config.js, so it is safe to reference here directly.
+          URL="https://hilwjjykrmyzxjbnnrfx.supabase.co/rest/v1/prompts?select=id&limit=1"
+          KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhpbHdqanlrcm15enhqYm5ucmZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMTI0MTIsImV4cCI6MjA5NTU4ODQxMn0.KvtY-Vba2NQ49uHtp3YUx5Tf23-yaryLJ-il7AAfy7E"
+          echo "Pinging $URL"
+          # --fail makes the job (and notification) fail if the project is ever
+          # unreachable — an early warning that it has paused or been deleted.
+          curl -sS --fail -o /dev/null -w "HTTP %{http_code}\n" \
+            -H "apikey: $KEY" "$URL"
