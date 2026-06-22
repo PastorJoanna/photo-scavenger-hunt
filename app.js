@@ -246,6 +246,16 @@ async function loadPrompt(index) {
   // Sort photos: newest first
   photos.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
+  // Keep only the newest photo per group. Retakes are insert-only, so a group may
+  // have several rows; sorted newest-first, the first one we see per group wins.
+  const seenGroups = new Set();
+  photos = photos.filter(p => {
+    const key = p.group_name.toLowerCase();
+    if (seenGroups.has(key)) return false;
+    seenGroups.add(key);
+    return true;
+  });
+
   // Check if our team has already uploaded a photo for this prompt
   const ourPhoto = photos.find(p => p.group_name.toLowerCase() === currentGroupName.toLowerCase());
   
@@ -403,6 +413,7 @@ function renderFeed(photos) {
 function appendPhotoElement(photo, container) {
   const card = document.createElement("div");
   card.className = "feed-item";
+  card.dataset.group = photo.group_name.toLowerCase();
   card.addEventListener("click", () => openLightbox(photo.photo_url));
 
   const img = document.createElement("img");
@@ -431,13 +442,21 @@ function appendPhotoElement(photo, container) {
 // Add real-time photo to feed
 function addPhotoToFeed(photo) {
   const feedGrid = document.getElementById("feed-grid");
-  
+
   // Remove empty feed message if it exists
   const emptyFeed = feedGrid.querySelector(".empty-feed");
   if (emptyFeed) {
     feedGrid.innerHTML = "";
   }
-  
+
+  // A retake arrives as a fresh insert; drop this group's previous card so the
+  // feed keeps exactly one (newest) photo per group. Match via dataset (not a CSS
+  // attribute selector) so arbitrary group names can't break the query.
+  const key = photo.group_name.toLowerCase();
+  feedGrid.querySelectorAll(".feed-item").forEach(card => {
+    if (card.dataset.group === key) card.remove();
+  });
+
   appendPhotoElement(photo, feedGrid);
 }
 
@@ -605,14 +624,11 @@ async function uploadToSupabase(dataUrl) {
       .getPublicUrl(filePath);
     const freshUrl = `${publicUrl}?t=${Date.now()}`;
 
-    // Delete existing record for our group on this prompt to allow overriding
-    await supabaseClient
-      .from(PHOTOS_TABLE)
-      .delete()
-      .eq('prompt_index', promptKey)
-      .eq('group_name', currentGroupName);
-
-    // Save record to DB
+    // Insert-only: a retake just adds a new row. The app displays the newest
+    // photo per group (see loadPrompt), so players never need delete permission —
+    // which keeps the photos table un-wipeable by anyone but an authenticated admin.
+    // The storage file uses a deterministic path (above), so the image itself is
+    // overwritten in place; only tiny DB rows accumulate, cleared via admin reset.
     const { error: dbError } = await supabaseClient
       .from(PHOTOS_TABLE)
       .insert([

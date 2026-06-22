@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initAdmin();
 });
 
-function initAdmin() {
+async function initAdmin() {
   if (isSupabaseConfigured()) {
     try {
       supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -14,24 +14,66 @@ function initAdmin() {
     }
   }
 
-  // Auth Form Submit
-  document.getElementById("auth-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const passwordInput = document.getElementById("admin-password-input").value;
-    
-    if (passwordInput === ADMIN_PASSWORD) {
-      showScreen("admin-screen");
-      loadAdminData();
-    } else {
-      alert("Invalid admin password!");
-    }
-  });
+  // Auth Form Submit — real Supabase email/password sign-in.
+  document.getElementById("auth-form").addEventListener("submit", handleSignIn);
+  document.getElementById("btn-logout").addEventListener("click", handleLogout);
 
   // Controls Event Listeners
   document.getElementById("btn-add-prompt").addEventListener("click", addNewPromptCard);
   document.getElementById("btn-save-prompts").addEventListener("click", savePromptsToCloud);
   document.getElementById("btn-reset-photos").addEventListener("click", resetPhotosDatabase);
   document.getElementById("btn-load-defaults").addEventListener("click", loadDefaultsInEditor);
+
+  // If a valid session already exists (supabase-js persists it), skip the login screen.
+  if (supabaseClient) {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) {
+      showScreen("admin-screen");
+      loadAdminData();
+    }
+  }
+}
+
+async function handleSignIn(e) {
+  e.preventDefault();
+
+  const errorEl = document.getElementById("auth-error");
+  errorEl.style.display = "none";
+
+  if (!supabaseClient) {
+    errorEl.textContent = "Admin sign-in requires a live Supabase connection.";
+    errorEl.style.display = "block";
+    return;
+  }
+
+  const email = document.getElementById("admin-email-input").value.trim();
+  const password = document.getElementById("admin-password-input").value;
+
+  const btn = document.getElementById("btn-signin");
+  btn.disabled = true;
+  btn.textContent = "Signing in...";
+
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+  btn.disabled = false;
+  btn.textContent = "Sign In 🔑";
+
+  if (error) {
+    errorEl.textContent = "Sign-in failed: " + error.message;
+    errorEl.style.display = "block";
+    return;
+  }
+
+  document.getElementById("admin-password-input").value = "";
+  showScreen("admin-screen");
+  loadAdminData();
+}
+
+async function handleLogout() {
+  if (supabaseClient) {
+    await supabaseClient.auth.signOut();
+  }
+  showScreen("auth-screen");
 }
 
 function showScreen(screenId) {

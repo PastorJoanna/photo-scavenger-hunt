@@ -73,15 +73,19 @@
     <!-- 1. Password Verification Screen -->
     <main id="auth-screen" class="screen active" style="justify-content: center; text-align: center;">
       <h2 class="join-title">Admin Dashboard</h2>
-      <p class="join-subtitle">Enter password to configure scavenger hunt</p>
+      <p class="join-subtitle">Sign in to configure the scavenger hunt</p>
       
       <form id="auth-form" class="glass-panel">
         <div class="input-container">
-          <input type="password" id="admin-password-input" placeholder="Enter Admin Password..." required>
+          <input type="email" id="admin-email-input" placeholder="Admin email..." required autocomplete="username">
         </div>
-        <button type="submit" class="btn-primary">
-          Verify Password 🔑
+        <div class="input-container">
+          <input type="password" id="admin-password-input" placeholder="Password..." required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-primary" id="btn-signin">
+          Sign In 🔑
         </button>
+        <p id="auth-error" style="color: #ef4444; font-size: 0.85rem; margin-top: 10px; display: none;"></p>
       </form>
     </main>
 
@@ -92,7 +96,10 @@
           <h1>HUNT SETTINGS</h1>
           <span class="admin-header-badge">Admin</span>
         </div>
-        <a href="index.html" style="color: var(--text-secondary); text-decoration: none; font-size: 0.9rem; font-weight: 600;">◀ Back to App</a>
+        <div style="display: flex; gap: 16px; align-items: center;">
+          <button id="btn-logout" style="background: transparent; border: none; color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; cursor: pointer;">Log out</button>
+          <a href="index.html" style="color: var(--text-secondary); text-decoration: none; font-size: 0.9rem; font-weight: 600;">◀ Back to App</a>
+        </div>
       </header>
 
       <section class="glass-panel">
@@ -130,10 +137,6 @@
   <!-- App configuration & scripts -->
   <script src="prompts.js"></script>
   <script src="supabase-config.js"></script>
-  <script>
-    // Simple Admin password. Customize this value!
-    const ADMIN_PASSWORD = "scavenger-admin";
-  </script>
   <script src="admin.js"></script>
 </body>
 </html>

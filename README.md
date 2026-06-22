@@ -17,7 +17,7 @@ A mobile-responsive, multi-user Progressive Web Application (PWA) with real-time
 To enable real-time synchronization and database storage, you will need a free Supabase account. Follow these steps:
 
 ### 1. Create the Database Tables
-In your Supabase Dashboard, open the **SQL Editor** and execute the following SQL script to create both the `photos` and `prompts` tables and setup Row Level Security (RLS) allowing public access:
+In your Supabase Dashboard, open the **SQL Editor** and execute the following SQL. It creates the `photos` and `prompts` tables with **hardened** Row Level Security: anyone can play (read prompts, read/add photos), but only a signed-in admin can edit prompts or delete photos.
 
 ```sql
 -- Create the photos table
@@ -32,9 +32,12 @@ create table photos (
 -- Enable RLS for photos
 alter table photos enable row level security;
 
-create policy "Allow public read access" on photos for select using (true);
-create policy "Allow public insert access" on photos for insert with check (true);
-create policy "Allow public delete access" on photos for delete using (true);
+-- Players: read the feed and add their own photos. Retakes are insert-only, so
+-- no public delete is needed (and the game can't be wiped by a participant).
+create policy "photos_public_read"   on photos for select using (true);
+create policy "photos_public_insert" on photos for insert with check (true);
+-- Only a signed-in admin can clear photos.
+create policy "photos_admin_delete"  on photos for delete to authenticated using (true);
 
 -- Create the prompts table
 create table prompts (
@@ -47,10 +50,11 @@ create table prompts (
 -- Enable RLS for prompts
 alter table prompts enable row level security;
 
-create policy "Allow public read access" on prompts for select using (true);
-create policy "Allow public insert access" on prompts for insert with check (true);
-create policy "Allow public update access" on prompts for update using (true);
-create policy "Allow public delete access" on prompts for delete using (true);
+-- Players: read-only. Only a signed-in admin can add/edit/remove prompts.
+create policy "prompts_public_read"  on prompts for select using (true);
+create policy "prompts_admin_insert" on prompts for insert to authenticated with check (true);
+create policy "prompts_admin_update" on prompts for update to authenticated using (true) with check (true);
+create policy "prompts_admin_delete" on prompts for delete to authenticated using (true);
 ```
 
 ### 2. Create the Storage Bucket
@@ -108,16 +112,15 @@ Vercel makes deploying static HTML/CSS/JS websites extremely easy:
 A password-protected admin dashboard is included in the project at `admin.html` (or `your-vercel-domain.com/admin.html` when deployed).
 
 ### Features
-- **Password Protection**: Prevents players from accessing settings.
+- **Real Authentication**: The admin panel is gated by Supabase Auth (email + password), not a client-side password. Saving prompts and clearing photos require a signed-in admin, enforced by the database RLS policies above.
 - **Customize Prompts**: Change challenge titles and descriptions dynamically.
 - **Dynamic Prompt Count**: Add new prompts or remove existing ones. The main PWA dynamically adjusts navigation based on how many prompts are saved.
 - **Reset Game**: Delete all current photo uploads to start a fresh game.
 - **Initialize Defaults**: Pre-populate the editor with the 15 default prompts.
 
-### Configuration
-1. Open `admin.html` in your editor.
-2. Edit the `ADMIN_PASSWORD` variable at the bottom of the HTML file (default is `scavenger-admin`):
-   ```javascript
-   const ADMIN_PASSWORD = "your-custom-password";
-   ```
-3. Save, commit, and push your changes to GitHub to redeploy!
+### Creating the admin user
+There is no password to edit in code. Instead, create exactly one admin account in Supabase:
+1. In the Supabase Dashboard, go to **Authentication → Users → Add user**.
+2. Enter the admin's email and a strong password, and check **Auto Confirm User** so they can sign in immediately.
+3. Go to **Authentication → Providers → Email** (or **Sign In / Providers**) and **disable "Allow new users to sign up"**, so no one else can ever create an account that would gain write access.
+4. Visit `admin.html`, sign in with that email and password, and you're in. The session persists, so you stay signed in until you choose **Log out**.
