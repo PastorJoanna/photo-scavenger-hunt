@@ -105,7 +105,7 @@ Vercel makes deploying static HTML/CSS/JS websites extremely easy:
 
 ## 🔑 Admin Dashboard
 
-A password-protected admin dashboard is included in the project at [admin.html](file:///Users/joannasmith/.gemini/antigravity/scratch/photo-scavenger-hunt/admin.html) (or `your-vercel-domain.com/admin.html` when deployed).
+A password-protected admin dashboard is included in the project at `admin.html` (or `your-vercel-domain.com/admin.html` when deployed).
 
 ### Features
 - **Password Protection**: Prevents players from accessing settings.
@@ -115,7 +115,7 @@ A password-protected admin dashboard is included in the project at [admin.html](
 - **Initialize Defaults**: Pre-populate the editor with the 15 default prompts.
 
 ### Configuration
-1. Open [admin.html](file:///Users/joannasmith/.gemini/antigravity/scratch/photo-scavenger-hunt/admin.html) in your editor.
+1. Open `admin.html` in your editor.
 2. Edit the `ADMIN_PASSWORD` variable at the bottom of the HTML file (default is `scavenger-admin`):
    ```javascript
    const ADMIN_PASSWORD = "your-custom-password";

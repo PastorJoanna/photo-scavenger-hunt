@@ -1,5 +1,11 @@
+// Supabase resource names (kept here so a rename is a one-line change)
+const PHOTOS_TABLE = "photos";
+const PROMPTS_TABLE = "prompts";
+const STORAGE_BUCKET = "scavenger-hunt";
+
 // State variables
-let currentPromptIndex = 1;
+let currentPromptIndex = 1; // 1-based position in promptsList (drives navigation)
+let currentPrompt = null;   // the resolved prompt object currently on screen
 let currentGroupName = "";
 let supabaseClient = null;
 let realtimeChannel = null;
@@ -51,7 +57,7 @@ async function initApp() {
 async function fetchPromptsList() {
   try {
     let { data, error } = await supabaseClient
-      .from('prompts')
+      .from(PROMPTS_TABLE)
       .select('*')
       .order('id', { ascending: true });
       
@@ -73,7 +79,7 @@ function checkSupabaseSetup() {
     warningContainer.innerHTML = `
       <div class="setup-warning">
         <strong>⚠️ Running in Demo Mode</strong>
-        Supabase URL and Anon Key are not configured in <a href="file:///Users/joannasmith/.gemini/antigravity/scratch/photo-scavenger-hunt/supabase-config.js" style="color: inherit; font-weight: 600;">supabase-config.js</a>. 
+        Supabase URL and Anon Key are not configured in <code style="font-weight: 600;">supabase-config.js</code>.
         Your uploads and progress will be saved locally. Check out the README.md to configure your live database!
       </div>
     `;
@@ -140,7 +146,8 @@ function setupEventListeners() {
   // Join Group
   document.getElementById("join-form").addEventListener("submit", (e) => {
     e.preventDefault();
-    const groupNameInput = document.getElementById("group-name-input").value.trim();
+    // Normalize whitespace so "Blue  Devils" and "Blue Devils" are one team
+    const groupNameInput = document.getElementById("group-name-input").value.trim().replace(/\s+/g, " ");
     if (groupNameInput) {
       currentGroupName = groupNameInput;
       localStorage.setItem("scavenger_group_name", currentGroupName);
@@ -190,17 +197,28 @@ function setupEventListeners() {
       document.getElementById("lightbox").classList.remove("active");
     }
   });
+
+  // Dismiss the lightbox with the Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      document.getElementById("lightbox").classList.remove("active");
+    }
+  });
 }
 
-// Load Prompt Data and Photos
+// Load Prompt Data and Photos.
+// `index` is the 1-based navigation position; the prompt's own `id` is used as the
+// stable key for photo records so navigation never breaks on non-contiguous ids.
 async function loadPrompt(index) {
   // Update nav buttons disabled state
   document.getElementById("btn-prev").disabled = (index === 1);
   document.getElementById("btn-next").disabled = (index === promptsList.length);
-  
-  // Find prompt details
-  const prompt = promptsList.find(p => p.id === index);
+
+  // Resolve prompt by position (robust even if DB ids have gaps)
+  const prompt = promptsList[index - 1];
   if (!prompt) return;
+  currentPrompt = prompt;
+  const promptKey = prompt.id;
 
   // Render Prompt Info
   document.getElementById("prompt-num-badge").textContent = `Prompt ${index} of ${promptsList.length}`;
@@ -214,12 +232,15 @@ async function loadPrompt(index) {
   // Load photos for this prompt
   let photos = [];
   if (isSupabaseConfigured()) {
-    photos = await fetchPhotosFromSupabase(index);
-    subscribeToRealtime(index);
+    photos = await fetchPhotosFromSupabase(promptKey);
+    // Guard against a navigation race: if the user moved to another prompt while
+    // this fetch was in flight, abandon this (now stale) render.
+    if (index !== currentPromptIndex) return;
+    subscribeToRealtime(promptKey);
   } else {
     // Demo mode: read from local array
-    photos = mockPhotos.filter(p => p.prompt_index === index);
-    setupMockRealtimeSimulation(index);
+    photos = mockPhotos.filter(p => p.prompt_index === promptKey);
+    setupMockRealtimeSimulation(promptKey);
   }
 
   // Sort photos: newest first
@@ -252,19 +273,25 @@ function resetUploadBox() {
 function showPhotoPreview(url) {
   const uploadBox = document.getElementById("upload-trigger");
   uploadBox.className = "upload-box has-preview";
-  uploadBox.innerHTML = `
-    <img src="${url}" class="preview-image" alt="My Group Upload">
-    <div style="position: absolute; bottom: 12px; background: rgba(0,0,0,0.75); padding: 6px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #f472b6;">
-      📸 Retake Photo
-    </div>
-  `;
+  uploadBox.replaceChildren();
+
+  const img = document.createElement("img");
+  img.className = "preview-image";
+  img.src = url;
+  img.alt = "My Group Upload";
+
+  const label = document.createElement("div");
+  label.className = "retake-label";
+  label.textContent = "📸 Retake Photo";
+
+  uploadBox.append(img, label);
 }
 
 // Fetch photos from Supabase
 async function fetchPhotosFromSupabase(promptIdx) {
   try {
     let { data, error } = await supabaseClient
-      .from('photos')
+      .from(PHOTOS_TABLE)
       .select('*')
       .eq('prompt_index', promptIdx);
       
@@ -290,7 +317,7 @@ function subscribeToRealtime(promptIdx) {
       {
         event: 'INSERT',
         schema: 'public',
-        table: 'photos',
+        table: PHOTOS_TABLE,
         filter: `prompt_index=eq.${promptIdx}`
       },
       (payload) => {
@@ -345,7 +372,7 @@ function setupMockRealtimeSimulation(promptIdx) {
       localStorage.setItem("scavenger_mock_photos", JSON.stringify(mockPhotos));
 
       // Append to UI if we are still on this prompt
-      if (currentPromptIndex === promptIdx) {
+      if (currentPrompt && currentPrompt.id === promptIdx) {
         addPhotoToFeed(newMockPhoto);
       }
     }
@@ -370,21 +397,34 @@ function renderFeed(photos) {
   });
 }
 
-// Append single photo card to feed
+// Append single photo card to feed.
+// Built with DOM APIs (not innerHTML) so group names — which are free text typed
+// by any participant — can never inject markup/script into other players' devices.
 function appendPhotoElement(photo, container) {
   const card = document.createElement("div");
   card.className = "feed-item";
   card.addEventListener("click", () => openLightbox(photo.photo_url));
 
-  const timeString = formatTime(photo.created_at);
+  const img = document.createElement("img");
+  img.className = "feed-img";
+  img.src = photo.photo_url;
+  img.alt = `${photo.group_name} Capture`;
+  img.loading = "lazy";
+  img.onerror = () => { card.style.display = "none"; };
 
-  card.innerHTML = `
-    <img src="${photo.photo_url}" class="feed-img" alt="${photo.group_name} Capture" loading="lazy">
-    <div class="feed-overlay">
-      <span class="feed-group-name">${photo.group_name}</span>
-      <span class="feed-time">${timeString}</span>
-    </div>
-  `;
+  const overlay = document.createElement("div");
+  overlay.className = "feed-overlay";
+
+  const nameSpan = document.createElement("span");
+  nameSpan.className = "feed-group-name";
+  nameSpan.textContent = photo.group_name;
+
+  const timeSpan = document.createElement("span");
+  timeSpan.className = "feed-time";
+  timeSpan.textContent = formatTime(photo.created_at);
+
+  overlay.append(nameSpan, timeSpan);
+  card.append(img, overlay);
   container.prepend(card);
 }
 
@@ -434,11 +474,21 @@ function processAndUploadPhoto(file) {
     <span class="upload-subtext">Compressing file for quick upload</span>
   `;
 
+  // Recover gracefully if the file can't be read or decoded (e.g. corrupt or
+  // an unsupported format) instead of leaving the spinner stuck forever.
+  const failUpload = (msg) => {
+    console.error(msg);
+    alert(msg + " Please try a different photo.");
+    resetUploadBox();
+  };
+
   // Compress using Canvas API
   const reader = new FileReader();
+  reader.onerror = () => failUpload("Could not read that image file.");
   reader.readAsDataURL(file);
   reader.onload = (event) => {
     const img = new Image();
+    img.onerror = () => failUpload("Could not load that image — it may be corrupt or an unsupported format.");
     img.src = event.target.result;
     img.onload = () => {
       // Target max dimension
@@ -484,17 +534,18 @@ function processAndUploadPhoto(file) {
 
 // Save photo details to local array (Demo Mode)
 function saveMockUpload(dataUrl) {
+  const promptKey = currentPrompt.id;
   const newPhoto = {
     id: `mock-upload-${Date.now()}`,
     group_name: currentGroupName,
-    prompt_index: currentPromptIndex,
+    prompt_index: promptKey,
     photo_url: dataUrl,
     created_at: new Date().toISOString()
   };
 
   // Remove previous upload of our own for this prompt if exists
   mockPhotos = mockPhotos.filter(
-    p => !(p.prompt_index === currentPromptIndex && p.group_name.toLowerCase() === currentGroupName.toLowerCase())
+    p => !(p.prompt_index === promptKey && p.group_name.toLowerCase() === currentGroupName.toLowerCase())
   );
 
   mockPhotos.push(newPhoto);
@@ -527,14 +578,17 @@ async function uploadToSupabase(dataUrl) {
       <span class="upload-subtext">Saving image to database</span>
     `;
 
+    const promptKey = currentPrompt.id;
     const blob = dataURLtoBlob(dataUrl);
-    const fileName = `prompt_${currentPromptIndex}_${currentGroupName.replace(/\s+/g, '_')}_${Date.now()}.jpg`;
-    const filePath = `photos/${fileName}`;
+    // Deterministic path (no timestamp): upsert overwrites the group's prior
+    // image for this prompt instead of leaving an orphaned file in the bucket.
+    const groupSlug = currentGroupName.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+    const filePath = `photos/prompt_${promptKey}_${groupSlug}.jpg`;
 
     // Upload to Supabase Storage
-    let { error: storageError, data: storageData } = await supabaseClient
+    let { error: storageError } = await supabaseClient
       .storage
-      .from('scavenger-hunt')
+      .from(STORAGE_BUCKET)
       .upload(filePath, blob, {
         cacheControl: '3600',
         upsert: true,
@@ -543,34 +597,36 @@ async function uploadToSupabase(dataUrl) {
 
     if (storageError) throw storageError;
 
-    // Get Public URL
+    // Get Public URL. Because the path is now stable, append a cache-buster so the
+    // uploader (and the CDN) fetch the freshly uploaded image rather than a cached one.
     const { data: { publicUrl } } = supabaseClient
       .storage
-      .from('scavenger-hunt')
+      .from(STORAGE_BUCKET)
       .getPublicUrl(filePath);
+    const freshUrl = `${publicUrl}?t=${Date.now()}`;
 
     // Delete existing record for our group on this prompt to allow overriding
     await supabaseClient
-      .from('photos')
+      .from(PHOTOS_TABLE)
       .delete()
-      .eq('prompt_index', currentPromptIndex)
+      .eq('prompt_index', promptKey)
       .eq('group_name', currentGroupName);
 
     // Save record to DB
     const { error: dbError } = await supabaseClient
-      .from('photos')
+      .from(PHOTOS_TABLE)
       .insert([
-        { 
-          group_name: currentGroupName, 
-          prompt_index: currentPromptIndex, 
-          photo_url: publicUrl 
+        {
+          group_name: currentGroupName,
+          prompt_index: promptKey,
+          photo_url: freshUrl
         }
       ]);
 
     if (dbError) throw dbError;
 
     // Success styling and load prompt
-    showPhotoPreview(publicUrl);
+    showPhotoPreview(freshUrl);
     loadPrompt(currentPromptIndex);
 
   } catch (error) {
