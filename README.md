@@ -58,14 +58,25 @@ create policy "prompts_admin_delete" on prompts for delete to authenticated usin
 ```
 
 ### 2. Create the Storage Bucket
-We need a storage bucket to host the actual image uploads:
-1. Navigate to **Storage** in the Supabase Sidebar.
-2. Click **New Bucket**.
-3. Name it exactly `scavenger-hunt`.
-4. Make sure to toggle the bucket as **Public** (so anyone can view image links).
-5. In **Bucket Policies**, create a policy that grants full read, write, and delete permissions to the public:
-   - Under **Allowed Operations**, check `SELECT`, `INSERT`, and `DELETE`.
-   - Set the policy target to `Public` or check `true` for all operations.
+The actual image files live in a storage bucket:
+1. Navigate to **Storage** in the Supabase sidebar.
+2. Click **New Bucket**, name it exactly `scavenger-hunt`, and toggle it **Public** (so image links are viewable).
+3. Open the **SQL Editor** and run the following so players can upload (and overwrite their own retakes) but **cannot delete** other groups' image files — only a signed-in admin can:
+
+```sql
+-- View images (public)
+create policy "scavenger_obj_read" on storage.objects
+  for select using (bucket_id = 'scavenger-hunt');
+-- Upload images (public)
+create policy "scavenger_obj_insert" on storage.objects
+  for insert with check (bucket_id = 'scavenger-hunt');
+-- Overwrite on retake (public) — the app uploads with upsert
+create policy "scavenger_obj_update" on storage.objects
+  for update using (bucket_id = 'scavenger-hunt') with check (bucket_id = 'scavenger-hunt');
+-- Only a signed-in admin can delete image files
+create policy "scavenger_obj_delete" on storage.objects
+  for delete to authenticated using (bucket_id = 'scavenger-hunt');
+```
 
 ### 3. Edit App Configuration
 Find your API keys under **Project Settings** -> **API**:
